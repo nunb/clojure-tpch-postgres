@@ -1,10 +1,17 @@
 # jdbc
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library designed to automate testing of POSTGRES using
+tables and queries laid down by TPC-H specification.
 
 ## Usage
 
-FIXME
+Install Leiningen as per http://leiningen.org/ .
+
+In the project source directory execute below commands to compile
+the project and create it's uberjar which packs all dependencies.
+
+lein compile
+lein uberjar
 
 ## License
 
