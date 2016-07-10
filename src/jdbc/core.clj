@@ -378,6 +378,15 @@
            (load-tables path)
            (analyse-tables pooled-db)))))
 
+;;https://groups.google.com/forum/#!topic/clojure/bKBkInBCzf8
+(defmacro bench
+  "Times the execution of forms, discarding their output and returning
+  a long in nanoseconds."
+  ([& forms]
+    `(let [start# (System/currentTimeMillis)]
+       ~@forms
+       (- (System/currentTimeMillis) start#))))
+
 (defn -main
   "JDBC CS425 Assignment."
   [path]
