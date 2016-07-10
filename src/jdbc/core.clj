@@ -330,9 +330,9 @@
   [tbl-name path]
   (try
     (let [conn (sql/get-connection db-spec)
-        fr (java.io.FileReader. (str path tbl-name ".tbl"))
+        br (java.io.BufferedReader. (java.io.FileReader. (str path tbl-name ".tbl")))
         cm (CopyManager. conn)]
-    (.copyIn cm (str "COPY " tbl-name " from stdin WITH DELIMITER AS '|'") fr))
+    (.copyIn cm (str "COPY " tbl-name " from stdin WITH DELIMITER AS '|'") br))
     (catch Exception e (println (str "Caught exception: " (.toString e))))))
 
 
