@@ -187,20 +187,20 @@
         "('22', '28', '19', '25', '33', '17', '13')) and not exists (select * from orders where o_custkey = c_custkey)) as custsale "
         "group by cntrycode order by cntrycode LIMIT 1"))
 
-(def table1
+(def cr_nation_tbl
   (sql/create-table-ddl :nation
                         [[:N_NATIONKEY  :INTEGER :NOT :NULL],
                          [:N_NAME       "CHAR(25)" :NOT :NULL],
                          [:N_REGIONKEY  :INTEGER :NOT :NULL],
                          [:N_COMMENT    "VARCHAR(152)"]]))
 
-(def table2
+(def cr_region_tbl
   (sql/create-table-ddl :region
                         [[:R_REGIONKEY  :INTEGER :NOT :NULL],
                          [:R_NAME       "CHAR(25)" :NOT :NULL],
                          [:R_COMMENT    "VARCHAR(152)"]]))
 
-(def table3
+(def cr_part_tbl
   (sql/create-table-ddl :part
                         [[:P_PARTKEY     :INTEGER :NOT :NULL],
                          [:P_NAME        "VARCHAR(55)" :NOT :NULL],
@@ -212,7 +212,7 @@
                          [:P_RETAILPRICE "DECIMAL(15,2)" :NOT :NULL],
                          [:P_COMMENT     "VARCHAR(23)" :NOT :NULL]]))
 
-(def table4
+(def cr_supplier_tbl
   (sql/create-table-ddl :supplier
                         [[:S_SUPPKEY     :INTEGER :NOT :NULL],
                          [:S_NAME        "CHAR(25)" :NOT :NULL],
@@ -222,7 +222,7 @@
                          [:S_ACCTBAL     "DECIMAL(15,2)" :NOT :NULL],
                          [:S_COMMENT     "VARCHAR(101)" :NOT :NULL]]))
 
-(def table5
+(def cr_partsupp_tbl
   (sql/create-table-ddl :partsupp
                         [[:PS_PARTKEY     :INTEGER :NOT :NULL],
                          [:PS_SUPPKEY     :INTEGER :NOT :NULL],
@@ -230,7 +230,7 @@
                          [:PS_SUPPLYCOST  "DECIMAL(15,2)"  :NOT :NULL],
                          [:PS_COMMENT     "VARCHAR(199)" :NOT :NULL]]))
 
-(def table6
+(def cr_customer_tbl
   (sql/create-table-ddl :customer
                         [[:C_CUSTKEY     :INTEGER :NOT :NULL],
                          [:C_NAME        "VARCHAR(25)" :NOT :NULL],
@@ -241,7 +241,7 @@
                          [:C_MKTSEGMENT  "CHAR(10)" :NOT :NULL],
                          [:C_COMMENT     "VARCHAR(117)" :NOT :NULL]]))
 
-(def table7
+(def cr_orders_tbl
   (sql/create-table-ddl :orders
                         [[:O_ORDERKEY       :INTEGER :NOT :NULL],
                          [:O_CUSTKEY        :INTEGER :NOT :NULL],
@@ -253,7 +253,7 @@
                          [:O_SHIPPRIORITY   :INTEGER :NOT :NULL],
                          [:O_COMMENT        "VARCHAR(79)" :NOT :NULL]]))
 
-(def table8
+(def cr_lineitem_tbl
   (sql/create-table-ddl :lineitem
                         [[:L_ORDERKEY    :INTEGER :NOT :NULL],
                          [:L_PARTKEY     :INTEGER :NOT :NULL],
@@ -313,14 +313,11 @@
   "Create tables for TPC-H if they do not exist."
   [pooled-db]
   (println "Creating tables...")
-  (sql/db-do-commands pooled-db table1)
-  (sql/db-do-commands pooled-db table2)
-  (sql/db-do-commands pooled-db table3)
-  (sql/db-do-commands pooled-db table4)
-  (sql/db-do-commands pooled-db table5)
-  (sql/db-do-commands pooled-db table6)
-  (sql/db-do-commands pooled-db table7)
-  (sql/db-do-commands pooled-db table8)
+  (let
+      [tables
+       [cr_nation_tbl cr_region_tbl cr_part_tbl cr_supplier_tbl
+                      cr_partsupp_tbl cr_customer_tbl cr_orders_tbl cr_lineitem_tbl]]
+    (doseq [table tables] (sql/db-do-commands pooled-db table)))
   (apply-constraints pooled-db)
   (println "Tables creation complete"))
 
@@ -342,43 +339,23 @@
 (defn load-tables
   "Load tables for Postgres."
   [path]
-  (println "Loading region table...")
-  (load-tbl-with-name "region" path)
-  (println "Loading nation table...")
-  (load-tbl-with-name "nation" path)
-  (println "Loading customer table...")
-  (load-tbl-with-name "customer" path)
-  (println "Loading supplier table...")
-  (load-tbl-with-name "supplier" path)
-  (println "Loading part table...")
-  (load-tbl-with-name "part" path)
-  (println "Loading partsupp table...")
-  (load-tbl-with-name "partsupp" path)
-  (println "Loading orders table...")
-  (load-tbl-with-name "orders" path)
-  (println "Loading lineitem table...")
-  (load-tbl-with-name "lineitem" path)
+  (let
+      [tables
+        ["region" "nation" "customer" "supplier" "part" "partsupp" "orders" "lineitem"]]
+    (doseq [table tables]
+      (println (str "Loading " table " table..."))
+      (load-tbl-with-name table path)))
   (println "Loading complete."))
 
 (defn analyse-tables
   "Analyse tables."
   [pooled-db]
-  (println "Analyzing region table...")
-  (sql/db-do-commands pooled-db "analyse region")
-  (println "Analyzing nation table...")
-  (sql/db-do-commands pooled-db "analyse nation")
-  (println "Analyzing customer table...")
-  (sql/db-do-commands pooled-db "analyse customer")
-  (println "Analyzing supplier table...")
-  (sql/db-do-commands pooled-db "analyse supplier")
-  (println "Analyzing part table...")
-  (sql/db-do-commands pooled-db "analyse part")
-  (println "Analyzing partsupp table...")
-  (sql/db-do-commands pooled-db "analyse partsupp")
-  (println "Analyzing orders table...")
-  (sql/db-do-commands pooled-db "analyse orders")
-  (println "Analyzing lineitem table...")
-  (sql/db-do-commands pooled-db "analyse lineitem")
+  (let
+      [tables
+       ["region" "nation" "customer" "supplier" "part" "partsupp" "orders" "lineitem"]]
+    (doseq [table tables]
+      (println (str "Analyzing " table " table..."))
+      (sql/db-do-commands pooled-db (str "analyse " table))))
   (println "Analysis complete"))
 
 (defn load-and-analyse
