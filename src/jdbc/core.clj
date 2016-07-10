@@ -375,7 +375,7 @@
     (catch Exception e (println (str "Caught Exception: " (.toString e))
            (println "TCP-H tables do not exist")
            (create-tpch-tables pooled-db)
-           (load-tables pooled-db)
+           (load-tables path)
            (analyse-tables pooled-db)))))
 
 (defn -main
