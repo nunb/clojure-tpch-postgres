@@ -41,7 +41,7 @@
   (str "select s_acctbal, s_name, n_name, p_partkey, p_mfgr, s_address, "
        "s_phone, s_comment from part, supplier, partsupp, nation, region "
        "where p_partkey = ps_partkey and s_suppkey = ps_suppkey and p_size = 4 "
-       "and p_type like '%:2' and s_nationkey = n_nationkey and n_regionkey = r_regionkey "
+       "and p_type like '%TIN' and s_nationkey = n_nationkey and n_regionkey = r_regionkey "
        "and r_name = 'MIDDLE EAST' and ps_supplycost = ("
        "select min(ps_supplycost) from partsupp, supplier, nation, region "
        "where p_partkey = ps_partkey and s_suppkey = ps_suppkey and s_nationkey = n_nationkey "
@@ -83,11 +83,11 @@
         "order by supp_nation, cust_nation, l_year LIMIT 1"))
 
 (def tpch_query8
-  (str "select o_year, sum(case when nation = ':1' then volume else 0 end) / sum(volume) as mkt_share from "
+  (str "select o_year, sum(case when nation = 'IRAQ' then volume else 0 end) / sum(volume) as mkt_share from "
 	"(select extract(year from o_orderdate) as o_year, l_extendedprice * (1 - l_discount) as volume, n2.n_name as nation "
         "from part, supplier, lineitem, orders, customer, nation n1, nation n2, region where p_partkey = l_partkey and s_suppkey = l_suppkey "
 	"and l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n1.n_nationkey and n1.n_regionkey = r_regionkey "
-	"and r_name = ':2' and s_nationkey = n2.n_nationkey and o_orderdate between date '1995-01-01' and date '1996-12-31' and p_type = ':3'"
+	"and r_name = 'MIDDLE EAST' and s_nationkey = n2.n_nationkey and o_orderdate between date '1995-01-01' and date '1996-12-31' and p_type = 'ECONOMY ANODIZED STEEL'"
 	") as all_nations group by o_year order by o_year LIMIT 1"))
 
 (def tpch_query9
@@ -186,6 +186,13 @@
         "select avg(c_acctbal) from customer where c_acctbal > 0.00 and substring(c_phone from 1 for 2) in "
         "('22', '28', '19', '25', '33', '17', '13')) and not exists (select * from orders where o_custkey = c_custkey)) as custsale "
         "group by cntrycode order by cntrycode LIMIT 1"))
+
+(def queries-to-run [tpch_query1 tpch_query2 tpch_query3 tpch_query4
+                     tpch_query5 tpch_query6 tpch_query7 tpch_query8
+                     tpch_query9 tpch_query10 tpch_query11 tpch_query12
+                     tpch_query13 tpch_query14 tpch_query15 tpch_query16
+                     tpch_query17 tpch_query18 tpch_query19 tpch_query20
+                     tpch_query21 tpch_query22])
 
 (def cr_nation_tbl
   (sql/create-table-ddl :nation
@@ -387,7 +394,41 @@
        ~@forms
        (- (System/currentTimeMillis) start#))))
 
+(defn run-timed-query
+  "Returns time in ms from an average of 3 runs."
+  [tpch_query]
+  (/ (reduce + (repeatedly 3 #(bench (sql/query pooled-db tpch_query)))) 3.0))
+
+(defn run-a-query
+  "Run a query three times and return the average time."
+  [query]
+  (let [starttime (System/currentTimeMillis)]
+    (dotimes [n 3]
+      (try
+        (let
+          [rs (sql/query pooled-db query)]
+        (dorun 0 (map #(println (keys %)) rs)) (dorun (map #(println (vals %)) rs)))
+        (catch Exception e)))
+      (/ (- (System/currentTimeMillis) starttime) 3.0)))
+
+;;https://clojuredocs.org/clojure.core/conj!
+(defn run-all-queries
+  "Run all TPC-H queries. Return a vector of average time taken for each query."
+  []
+  (loop [i 0 v (transient [])]
+    (if (< i 22)
+      (recur (inc i) (conj! v (run-a-query (get queries-to-run i))))
+      (persistent! v))))
+
+(defn print-results
+  []
+  (let [v (run-all-queries)]
+    (dotimes [n 22]
+      (println (str "TPC-H Query " (+ n 1) " took " (get v n) " ms.")))
+    (println (str "Total runtime of 22 queries: " (reduce + v) " ms."))))
+
 (defn -main
   "JDBC CS425 Assignment."
   [path]
-  (check-for-tables pooled-db path))
+  (check-for-tables pooled-db path)
+  (print-results))
