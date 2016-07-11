@@ -407,7 +407,12 @@
       (try
         (let
           [rs (sql/query pooled-db query)]
-        (dorun 0 (map #(println (keys %)) rs)) (dorun (map #(println (vals %)) rs)))
+        ;; Print column names with | as delimiter
+        (dorun 0 (map #(println (clojure.string/join " | " (keys %))) rs))
+        ;; Print a seperator between column names and rows
+        (println "------------------------------------------------------")
+        ;; Print rows with | as delimiter
+        (dorun (map #(println (clojure.string/join " | " (vals %))) rs)))
         (catch Exception e)))
       (/ (- (System/currentTimeMillis) starttime) 3.0)))
 
