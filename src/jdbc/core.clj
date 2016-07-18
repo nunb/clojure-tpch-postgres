@@ -280,8 +280,9 @@
                          [:L_COMMENT      "VARCHAR(44)" :NOT :NULL]]))
 
 (defn apply-constraints
-  "Apply contraints on the tables."
+  "Apply primary and foreign key contraints on the tables."
   [pooled-db]
+  (println "Applying constraints...")
   (sql/db-do-commands pooled-db
              ["ALTER TABLE REGION ADD PRIMARY KEY (R_REGIONKEY)"])
   (sql/db-do-commands pooled-db
@@ -314,6 +315,7 @@
              ["ALTER TABLE LINEITEM ADD CONSTRAINT L_FK_ORDER FOREIGN KEY (L_ORDERKEY)  REFERENCES ORDERS"])
   (sql/db-do-commands pooled-db
              ["ALTER TABLE LINEITEM ADD CONSTRAINT L_FK_PARTSUPP FOREIGN KEY  (L_PARTKEY,L_SUPPKEY) REFERENCES PARTSUPP"])
+  (println "Constraints applied.")
   )
 
 (defn create-tpch-tables
