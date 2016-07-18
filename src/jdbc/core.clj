@@ -305,7 +305,6 @@
        [cr_nation_tbl cr_region_tbl cr_part_tbl cr_supplier_tbl
                       cr_partsupp_tbl cr_customer_tbl cr_orders_tbl cr_lineitem_tbl]]
     (doseq [table tables] (sql/db-do-commands conn-db table)))
-  (apply-constraints conn-db)
   (println "Tables creation complete"))
 
 ;; Java Interop translated from
@@ -363,6 +362,7 @@
            (println "TCP-H tables do not exist")
            (create-tpch-tables conn-db)
            (load-tables conn-db path)
+           (apply-constraints conn-db)
            (analyse-tables conn-db))))
 
 ;;https://groups.google.com/forum/#!topic/clojure/bKBkInBCzf8
@@ -381,7 +381,8 @@
 
 (defn run-a-query
   "Run a query three times and return the average time."
-  [conn-db query]
+  [conn-db query queryno]
+  (println (str "Running query " queryno))
   (let [starttime (System/currentTimeMillis)]
     (dotimes [n 3]
       (try
@@ -402,7 +403,7 @@
   [conn-db]
   (loop [i 0 v (transient [])]
     (if (< i 22)
-      (recur (inc i) (conj! v (run-a-query conn-db (get queries-to-run i))))
+      (recur (inc i) (conj! v (run-a-query conn-db (get queries-to-run i) (+ i 1))))
       (persistent! v))))
 
 (defn print-results
