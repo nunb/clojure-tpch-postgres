@@ -141,10 +141,9 @@
 	"p_type, p_size LIMIT 1"))
 
 (def tpch_query17
-  (str "select sum(l_extendedprice) / 7.0 as avg_yearly from lineitem, part, "
-	"(SELECT l_partkey AS agg_partkey, 0.2 * avg(l_quantity) AS avg_quantity FROM lineitem GROUP BY l_partkey) part_agg where "
-	"p_partkey = l_partkey and agg_partkey = l_partkey and p_brand = 'Brand#44' and p_container = 'MED PACK' "
-        "and l_quantity < avg_quantity LIMIT 1"))
+  (str "select sum(l_extendedprice) / 7.0 as avg_yearly from lineitem, part where "
+	"p_partkey = l_partkey and p_brand = 'Brand#44' and p_container = 'MED PACK' "
+	"and l_quantity < (select 0.2 * avg(l_quantity) from lineitem where l_partkey = p_partkey)"))
 
 (def tpch_query18
   (str "select c_name, c_custkey, o_orderkey, o_orderdate, o_totalprice, sum(l_quantity) from customer, orders, lineitem "
@@ -164,12 +163,12 @@
 	"and l_shipmode in ('AIR', 'AIR REG') and l_shipinstruct = 'DELIVER IN PERSON') LIMIT 1"))
 
 (def tpch_query20
-  (str "select s_name, s_address from supplier, nation where s_suppkey in (select ps_suppkey from partsupp, "
-	"(select l_partkey agg_partkey, l_suppkey agg_suppkey, 0.5 * sum(l_quantity) AS agg_quantity from lineitem "
-	"where l_shipdate >= date '1994-01-01' and l_shipdate < date '1994-01-01' + interval '1' year group by l_partkey, l_suppkey) agg_lineitem "
-	"where agg_partkey = ps_partkey and agg_suppkey = ps_suppkey and ps_partkey in (select p_partkey from part "
-	"where p_name like 'cream%' ) and ps_availqty > agg_quantity) and s_nationkey = n_nationkey and n_name = 'JAPAN' "
-        "order by s_name LIMIT 1"))
+  (str "select s_name, s_address from supplier, nation where s_suppkey in ("
+	"select ps_suppkey from partsupp where ps_partkey in (select p_partkey from part "
+	"where p_name like 'cream%') and ps_availqty > (select 0.5 * sum(l_quantity) from lineitem "
+	"where l_partkey = ps_partkey and l_suppkey = ps_suppkey and l_shipdate >= date '1994-01-01' "
+	"and l_shipdate < date '1994-01-01' + interval '1' year )) and s_nationkey = n_nationkey "
+	"and n_name = 'JAPAN' order by s_name"))
 
 (def tpch_query21
   (str "select s_name, count(*) as numwait from supplier, lineitem l1, orders, nation where "
