@@ -1,31 +1,10 @@
 (ns jdbc.core
   (:require [clojure.java.jdbc :as sql]
             [clojure.java.io :as io])
-  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
   (:import org.postgresql.copy.CopyManager)
   (:import org.postgresql.copy.PGCopyInputStream)
   (:import org.postgresql.util.PSQLException)
   (:gen-class))
-
-(def db-spec
-  {:classname "org.postgresql.Driver"
-   :subprotocol "postgresql"
-   :subname "//localhost:5432/postgres"
-   :user "sanchayan"})
-
-(defn pool
-  [spec]
-  (let [cpds (doto (ComboPooledDataSource.)
-               (.setDriverClass (:classname spec))
-               (.setJdbcUrl (str "jdbc:" (:subprotocol spec) ":" (:subname spec)))
-               (.setUser (:user spec))
-               ;; expire excess connections after 30 minutes of inactivity:
-               (.setMaxIdleTimeExcessConnections (* 30 60))
-               ;; expire connections after 3 hours of inactivity:
-               (.setMaxIdleTime (* 3 60 60)))]
-    {:datasource cpds}))
-
-(def pooled-db (pool db-spec))
 
 (def tpch_query1
   (str "select l_returnflag, l_linestatus, sum(l_quantity) as sum_qty, "
@@ -280,53 +259,53 @@
 
 (defn apply-constraints
   "Apply primary and foreign key contraints on the tables."
-  [pooled-db]
+  [conn-db]
   (println "Applying constraints...")
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE REGION ADD PRIMARY KEY (R_REGIONKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE NATION ADD PRIMARY KEY (N_NATIONKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE NATION ADD CONSTRAINT N_FK_REGION FOREIGN KEY (N_REGIONKEY) REFERENCES REGION (R_REGIONKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE PART ADD PRIMARY KEY (P_PARTKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE SUPPLIER ADD PRIMARY KEY (S_SUPPKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE SUPPLIER ADD CONSTRAINT S_FK_NATION FOREIGN KEY (S_NATIONKEY) REFERENCES NATION"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE PARTSUPP ADD PRIMARY KEY (PS_PARTKEY, PS_SUPPKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE CUSTOMER ADD PRIMARY KEY (C_CUSTKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE CUSTOMER ADD CONSTRAINT C_FK_NATION FOREIGN KEY (C_NATIONKEY) REFERENCES NATION"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE LINEITEM ADD PRIMARY KEY (L_ORDERKEY, L_LINENUMBER)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE ORDERS ADD PRIMARY KEY (O_ORDERKEY)"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE PARTSUPP ADD CONSTRAINT PS_FK_SUPPLIER FOREIGN KEY (PS_SUPPKEY) REFERENCES SUPPLIER"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE PARTSUPP ADD CONSTRAINT PS_FK_PART FOREIGN KEY (PS_PARTKEY) REFERENCES PART"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE ORDERS ADD CONSTRAINT O_FK_CUSTOMER FOREIGN KEY (O_CUSTKEY) REFERENCES CUSTOMER"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE LINEITEM ADD CONSTRAINT L_FK_ORDER FOREIGN KEY (L_ORDERKEY)  REFERENCES ORDERS"])
-  (sql/db-do-commands pooled-db
+  (sql/db-do-commands conn-db
              ["ALTER TABLE LINEITEM ADD CONSTRAINT L_FK_PARTSUPP FOREIGN KEY  (L_PARTKEY,L_SUPPKEY) REFERENCES PARTSUPP"])
   (println "Constraints applied.")
   )
 
 (defn create-tpch-tables
   "Create tables for TPC-H if they do not exist."
-  [pooled-db]
+  [conn-db]
   (println "Creating tables...")
   (let
       [tables
        [cr_nation_tbl cr_region_tbl cr_part_tbl cr_supplier_tbl
                       cr_partsupp_tbl cr_customer_tbl cr_orders_tbl cr_lineitem_tbl]]
-    (doseq [table tables] (sql/db-do-commands pooled-db table)))
-  (apply-constraints pooled-db)
+    (doseq [table tables] (sql/db-do-commands conn-db table)))
+  (apply-constraints conn-db)
   (println "Tables creation complete"))
 
 ;; Java Interop translated from
@@ -335,56 +314,56 @@
 ;; https://gist.github.com/dpick/15dcd98167c099a356c6#file-copy
 (defn load-tbl-with-name
   "Load table with a given name."
-  [tbl-name path]
+  [conn-db tbl-name path]
   (try
-    (let [conn (sql/get-connection db-spec)
-        br (java.io.BufferedReader. (java.io.FileReader. (str path tbl-name ".tbl")))
-        cm (CopyManager. conn)]
+    (let [conn (sql/get-connection conn-db)
+          br (java.io.BufferedReader. (java.io.FileReader. (str path tbl-name ".tbl")))
+          cm (CopyManager. conn)]
     (.copyIn cm (str "COPY " tbl-name " from stdin WITH DELIMITER AS '|'") br))
     (catch Exception e (println (str "Caught exception: " (.toString e))))))
 
 
 (defn load-tables
   "Load tables for Postgres."
-  [path]
+  [conn-db path]
   (let
       [tables
         ["region" "nation" "customer" "supplier" "part" "partsupp" "orders" "lineitem"]]
     (doseq [table tables]
       (println (str "Loading " table " table..."))
-      (load-tbl-with-name table path)))
+      (load-tbl-with-name conn-db table path)))
   (println "Loading complete."))
 
 (defn analyse-tables
   "Analyse tables."
-  [pooled-db]
+  [conn-db]
   (let
       [tables
        ["region" "nation" "customer" "supplier" "part" "partsupp" "orders" "lineitem"]]
     (doseq [table tables]
       (println (str "Analyzing " table " table..."))
-      (sql/db-do-commands pooled-db (str "analyse " table))))
+      (sql/db-do-commands conn-db (str "analyse " table))))
   (println "Analysis complete"))
 
 (defn load-and-analyse
   "Load tables with data and generate statistics"
-  [pooled-db path]
-  (load-tables path)
-  (analyse-tables pooled-db))
+  [conn-db path]
+  (load-tables conn-db path)
+  (analyse-tables conn-db))
 
 (defn check-for-tables
   "Check for existence of tables."
-  [pooled-db path]
+  [conn-db path]
   (try
-    (let [count (-> (sql/query pooled-db ["select count(*) from region as count"]) first :count)]
+    (let [count (-> (sql/query conn-db ["select count(*) from region as count"]) first :count)]
       (if (= count 0)
-        (load-and-analyse pooled-db path)
-        (analyse-tables pooled-db)))
-    (catch Exception e (println (str "Caught Exception: " (.toString e))
+        (load-and-analyse conn-db path)
+        (analyse-tables conn-db)))
+    (catch Exception e
            (println "TCP-H tables do not exist")
-           (create-tpch-tables pooled-db)
-           (load-tables path)
-           (analyse-tables pooled-db)))))
+           (create-tpch-tables conn-db)
+           (load-tables conn-db path)
+           (analyse-tables conn-db))))
 
 ;;https://groups.google.com/forum/#!topic/clojure/bKBkInBCzf8
 (defmacro bench
@@ -397,17 +376,17 @@
 
 (defn run-timed-query
   "Returns time in ms from an average of 3 runs."
-  [tpch_query]
-  (/ (reduce + (repeatedly 3 #(bench (sql/query pooled-db tpch_query)))) 3.0))
+  [conn-db tpch_query]
+  (/ (reduce + (repeatedly 3 #(bench (sql/query conn-db tpch_query)))) 3.0))
 
 (defn run-a-query
   "Run a query three times and return the average time."
-  [query]
+  [conn-db query]
   (let [starttime (System/currentTimeMillis)]
     (dotimes [n 3]
       (try
         (let
-          [rs (sql/query pooled-db query)]
+          [rs (sql/query conn-db query)]
         ;; Print column names with | as delimiter
         (dorun 0 (map #(println (clojure.string/join " | " (keys %))) rs))
         ;; Print a seperator between column names and rows
@@ -420,21 +399,26 @@
 ;;https://clojuredocs.org/clojure.core/conj!
 (defn run-all-queries
   "Run all TPC-H queries. Return a vector of average time taken for each query."
-  []
+  [conn-db]
   (loop [i 0 v (transient [])]
     (if (< i 22)
-      (recur (inc i) (conj! v (run-a-query (get queries-to-run i))))
+      (recur (inc i) (conj! v (run-a-query conn-db (get queries-to-run i))))
       (persistent! v))))
 
 (defn print-results
-  []
-  (let [v (run-all-queries)]
+  [conn-db]
+  (let [v (run-all-queries conn-db)]
     (dotimes [n 22]
       (println (str "TPC-H Query " (+ n 1) " took " (get v n) " ms.")))
     (println (str "Total runtime of 22 queries: " (reduce + v) " ms."))))
 
 (defn -main
   "JDBC CS425 Assignment."
-  [path]
-  (check-for-tables pooled-db path)
-  (print-results))
+  [user password dbname path]
+  (sql/with-db-connection [conn-db {:classname "org.postgresql.Driver"
+                                  :subprotocol "postgresql"
+                                  :subname (str "//localhost:5432/" dbname)
+                                  :user user
+                                  :password password}]
+    (check-for-tables conn-db path)
+    (print-results conn-db)))
