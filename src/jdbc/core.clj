@@ -415,10 +415,10 @@
 
 (defn -main
   "JDBC CS425 Assignment."
-  [user password dbname path]
+  [host port user password dbname path]
   (sql/with-db-connection [conn-db {:classname "org.postgresql.Driver"
                                   :subprotocol "postgresql"
-                                  :subname (str "//localhost:5432/" dbname)
+                                  :subname (str "//" host ":" port "/" dbname)
                                   :user user
                                   :password password}]
     (check-for-tables conn-db path)
