@@ -1,6 +1,6 @@
 # jdbc
 
-A Clojure library designed to automate testing of POSTGRES using
+A Clojure application written to automate testing of POSTGRES using
 tables and queries laid down by TPC-H specification.
 
 ## Usage
@@ -15,7 +15,7 @@ lein uberjar
 
 ## License
 
-Copyright © 2016 FIXME
+Copyright © 2017 Sanchayan Maity
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
